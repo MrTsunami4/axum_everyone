@@ -47,7 +47,7 @@ async fn main() {
         .with_state(AppState { pool });
 
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 3000));
-    tracing::debug!("listening on {}", addr);
+    tracing::info!("listening on http://{}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await
