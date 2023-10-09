@@ -1,3 +1,7 @@
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+
 use axum::{debug_handler, extract::State, http::StatusCode, routing::get, Json, Router};
 use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqliteConnectOptions, FromRow, SqlitePool};
@@ -98,22 +102,15 @@ async fn get_random_joke(state: State<AppState>) -> (StatusCode, Json<Joke>) {
     .await;
 
     match row {
-        Ok(opt) => match opt {
-            Some(joke) => (StatusCode::OK, Json(joke)),
-            None => (
-                StatusCode::NOT_FOUND,
-                Json(Joke {
-                    url: "".to_string(),
-                }),
-            ),
-        },
+        Ok(opt) => opt.map_or_else(
+            || (StatusCode::NOT_FOUND, Json(Joke { url: String::new() })),
+            |joke| (StatusCode::OK, Json(joke)),
+        ),
         Err(e) => {
             error!("Error getting joke: {:?}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(Joke {
-                    url: "".to_string(),
-                }),
+                Json(Joke { url: String::new() }),
             )
         }
     }
