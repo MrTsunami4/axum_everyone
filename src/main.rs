@@ -43,7 +43,11 @@ async fn main() {
     .unwrap();
 
     let app = Router::new()
-        .route("/jokes", get(get_random_joke).post(add_joke))
+        .route("/", get(index))
+        .route(
+            "/jokes",
+            get(get_random_joke).post(add_joke).delete(delete_all_joke),
+        )
         .with_state(AppState { pool });
 
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 3000));
@@ -52,6 +56,10 @@ async fn main() {
         .serve(app.into_make_service())
         .await
         .unwrap();
+}
+
+async fn index() -> &'static str {
+    "Hello, World!"
 }
 
 #[debug_handler]
@@ -86,11 +94,19 @@ async fn get_random_joke(state: State<AppState>) -> (StatusCode, Json<Joke>) {
         LIMIT 1
         "#,
     )
-    .fetch_one(&state.pool)
+    .fetch_optional(&state.pool)
     .await;
 
     match row {
-        Ok(joke) => (StatusCode::OK, Json(joke)),
+        Ok(opt) => match opt {
+            Some(joke) => (StatusCode::OK, Json(joke)),
+            None => (
+                StatusCode::NOT_FOUND,
+                Json(Joke {
+                    url: "".to_string(),
+                }),
+            ),
+        },
         Err(e) => {
             error!("Error getting joke: {:?}", e);
             (
@@ -99,6 +115,31 @@ async fn get_random_joke(state: State<AppState>) -> (StatusCode, Json<Joke>) {
                     url: "".to_string(),
                 }),
             )
+        }
+    }
+}
+
+#[debug_handler]
+async fn delete_all_joke(state: State<AppState>) -> StatusCode {
+    let result = sqlx::query(
+        r#"
+        DELETE FROM jokes
+        "#,
+    )
+    .execute(&state.pool)
+    .await;
+
+    match result {
+        Ok(qr) => {
+            if qr.rows_affected() > 0 {
+                StatusCode::OK
+            } else {
+                StatusCode::NOT_MODIFIED
+            }
+        }
+        Err(result) => {
+            error!("Error deleting jokes: {:?}", result);
+            StatusCode::INTERNAL_SERVER_ERROR
         }
     }
 }
