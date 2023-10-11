@@ -3,6 +3,7 @@
 #![warn(clippy::nursery)]
 
 use axum::{debug_handler, extract::State, http::StatusCode, routing::get, Json, Router};
+use clap::Parser;
 use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqliteConnectOptions, FromRow, SqlitePool};
 use std::net::{Ipv4Addr, SocketAddr};
@@ -24,9 +25,17 @@ struct Joke {
     url: String,
 }
 
+#[derive(Parser)]
+struct Opts {
+    #[clap(long)]
+    host: bool,
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
+
+    let opts = Opts::parse();
 
     let options = SqliteConnectOptions::new()
         .filename("data.db")
@@ -54,7 +63,12 @@ async fn main() {
         )
         .with_state(AppState { pool });
 
-    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 3000));
+    let type_addr = if opts.host {
+        Ipv4Addr::UNSPECIFIED
+    } else {
+        Ipv4Addr::LOCALHOST
+    };
+    let addr = SocketAddr::from((type_addr, 3000));
     tracing::info!("listening on http://{}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
