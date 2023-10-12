@@ -35,7 +35,7 @@ struct Opts {
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    let opts = Opts::parse();
+    let host_flag = Opts::parse().host;
 
     let options = SqliteConnectOptions::new()
         .filename("data.db")
@@ -63,7 +63,7 @@ async fn main() {
         )
         .with_state(AppState { pool });
 
-    let type_addr = if opts.host {
+    let type_addr = if host_flag {
         Ipv4Addr::UNSPECIFIED
     } else {
         Ipv4Addr::LOCALHOST
@@ -82,23 +82,21 @@ async fn index() -> &'static str {
 
 #[debug_handler]
 async fn add_joke(state: State<AppState>, Json(payload): Json<Joke>) -> (StatusCode, Json<Joke>) {
-    let joke = Joke { url: payload.url };
-
     let result = sqlx::query(
         r#"
         INSERT INTO jokes (url)
         VALUES ($1)
         "#,
     )
-    .bind(joke.url.clone())
+    .bind(payload.url.clone())
     .execute(&state.pool)
     .await;
 
     match result {
-        Ok(_) => (StatusCode::CREATED, Json(joke)),
+        Ok(_) => (StatusCode::CREATED, Json(payload)),
         Err(result) => {
             error!("Error inserting joke: {:?}", result);
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(joke))
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(payload))
         }
     }
 }
@@ -116,10 +114,8 @@ async fn get_random_joke(state: State<AppState>) -> (StatusCode, Json<Joke>) {
     .await;
 
     match row {
-        Ok(opt) => opt.map_or_else(
-            || (StatusCode::NOT_FOUND, Json(Joke { url: String::new() })),
-            |joke| (StatusCode::OK, Json(joke)),
-        ),
+        Ok(Some(joke)) => (StatusCode::OK, Json(joke)),
+        Ok(None) => (StatusCode::NOT_FOUND, Json(Joke { url: String::new() })),
         Err(e) => {
             error!("Error getting joke: {:?}", e);
             (
