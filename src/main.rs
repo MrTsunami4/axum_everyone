@@ -42,7 +42,9 @@ async fn main() {
         .filename("data.db")
         .create_if_missing(true);
 
-    let pool = SqlitePool::connect_with(options).await.unwrap();
+    let pool = SqlitePool::connect_with(options)
+        .await
+        .expect("Error connecting to database");
 
     sqlx::query(
         r"
@@ -54,7 +56,7 @@ async fn main() {
     )
     .execute(&pool)
     .await
-    .unwrap();
+    .expect("Error creating table");
 
     let app = Router::new()
         .route("/", get(index))
