@@ -7,6 +7,7 @@ use clap::Parser;
 use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqliteConnectOptions, FromRow, SqlitePool};
 use std::net::{Ipv4Addr, SocketAddr};
+use tokio::net::TcpListener;
 use tracing::error;
 
 #[derive(Serialize)]
@@ -44,12 +45,12 @@ async fn main() {
     let pool = SqlitePool::connect_with(options).await.unwrap();
 
     sqlx::query(
-        r#"
+        r"
         CREATE TABLE IF NOT EXISTS jokes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             url TEXT NOT NULL
         )
-        "#,
+        ",
     )
     .execute(&pool)
     .await
@@ -69,11 +70,9 @@ async fn main() {
         Ipv4Addr::LOCALHOST
     };
     let addr = SocketAddr::from((type_addr, 3000));
+    let tcp = TcpListener::bind(addr).await.unwrap();
     tracing::info!("listening on http://{}", addr);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+    axum::serve(tcp, app).await.unwrap();
 }
 
 async fn index() -> &'static str {
@@ -83,10 +82,10 @@ async fn index() -> &'static str {
 #[debug_handler]
 async fn add_joke(state: State<AppState>, Json(payload): Json<Joke>) -> (StatusCode, Json<Joke>) {
     let result = sqlx::query(
-        r#"
+        r"
         INSERT INTO jokes (url)
         VALUES ($1)
-        "#,
+        ",
     )
     .bind(payload.url.clone())
     .execute(&state.pool)
@@ -104,11 +103,11 @@ async fn add_joke(state: State<AppState>, Json(payload): Json<Joke>) -> (StatusC
 #[debug_handler]
 async fn get_random_joke(state: State<AppState>) -> (StatusCode, Json<Joke>) {
     let row = sqlx::query_as::<_, Joke>(
-        r#"
+        r"
         SELECT url FROM jokes
         ORDER BY RANDOM()
         LIMIT 1
-        "#,
+        ",
     )
     .fetch_optional(&state.pool)
     .await;
@@ -129,9 +128,9 @@ async fn get_random_joke(state: State<AppState>) -> (StatusCode, Json<Joke>) {
 #[debug_handler]
 async fn delete_all_joke(state: State<AppState>) -> StatusCode {
     let result = sqlx::query(
-        r#"
+        r"
         DELETE FROM jokes
-        "#,
+        ",
     )
     .execute(&state.pool)
     .await;
