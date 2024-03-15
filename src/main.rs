@@ -7,7 +7,7 @@ use clap::Parser;
 use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqliteConnectOptions, FromRow, SqlitePool};
 use std::net::{Ipv4Addr, SocketAddr};
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, signal};
 use tracing::error;
 
 #[derive(Serialize)]
@@ -74,7 +74,16 @@ async fn main() {
     let addr = SocketAddr::from((type_addr, 3000));
     let tcp = TcpListener::bind(addr).await.unwrap();
     tracing::info!("listening on http://{}", addr);
-    axum::serve(tcp, app).await.unwrap();
+    axum::serve(tcp, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .unwrap();
+}
+
+async fn shutdown_signal() {
+    signal::ctrl_c()
+        .await
+        .expect("Error setting Ctrl-C signal handler");
 }
 
 async fn index() -> &'static str {
