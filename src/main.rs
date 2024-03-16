@@ -2,13 +2,14 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 
-use axum::{debug_handler, extract::State, http::StatusCode, routing::get, Json, Router};
+use axum::{routing::get, Router};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqliteConnectOptions, FromRow, SqlitePool};
 use std::net::{Ipv4Addr, SocketAddr};
 use tokio::{net::TcpListener, signal};
-use tracing::error;
+
+mod handler;
 
 #[derive(Serialize)]
 struct User {
@@ -46,23 +47,15 @@ async fn main() {
         .await
         .expect("Error connecting to database");
 
-    sqlx::query(
-        r"
-        CREATE TABLE IF NOT EXISTS jokes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            url TEXT NOT NULL
-        )
-        ",
-    )
-    .execute(&pool)
-    .await
-    .expect("Error creating table");
+    init_table(&pool).await;
 
     let app = Router::new()
         .route("/", get(index))
         .route(
             "/jokes",
-            get(get_random_joke).post(add_joke).delete(delete_all_joke),
+            get(handler::get_random_joke)
+                .post(handler::add_joke)
+                .delete(handler::delete_all_joke),
         )
         .with_state(AppState { pool });
 
@@ -90,73 +83,16 @@ async fn index() -> &'static str {
     "Hello, World!"
 }
 
-#[debug_handler]
-async fn add_joke(state: State<AppState>, Json(payload): Json<Joke>) -> (StatusCode, Json<Joke>) {
-    let result = sqlx::query(
+async fn init_table(pool: &SqlitePool) {
+    sqlx::query(
         r"
-        INSERT INTO jokes (url)
-        VALUES ($1)
+        CREATE TABLE IF NOT EXISTS jokes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            url TEXT NOT NULL
+        )
         ",
     )
-    .bind(payload.url.clone())
-    .execute(&state.pool)
-    .await;
-
-    match result {
-        Ok(_) => (StatusCode::CREATED, Json(payload)),
-        Err(result) => {
-            error!("Error inserting joke: {:?}", result);
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(payload))
-        }
-    }
-}
-
-#[debug_handler]
-async fn get_random_joke(state: State<AppState>) -> (StatusCode, Json<Joke>) {
-    let row = sqlx::query_as::<_, Joke>(
-        r"
-        SELECT url FROM jokes
-        ORDER BY RANDOM()
-        LIMIT 1
-        ",
-    )
-    .fetch_optional(&state.pool)
-    .await;
-
-    match row {
-        Ok(Some(joke)) => (StatusCode::OK, Json(joke)),
-        Ok(None) => (StatusCode::NOT_FOUND, Json(Joke { url: String::new() })),
-        Err(e) => {
-            error!("Error getting joke: {:?}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(Joke { url: String::new() }),
-            )
-        }
-    }
-}
-
-#[debug_handler]
-async fn delete_all_joke(state: State<AppState>) -> StatusCode {
-    let result = sqlx::query(
-        r"
-        DELETE FROM jokes
-        ",
-    )
-    .execute(&state.pool)
-    .await;
-
-    match result {
-        Ok(qr) => {
-            if qr.rows_affected() > 0 {
-                StatusCode::OK
-            } else {
-                StatusCode::NOT_MODIFIED
-            }
-        }
-        Err(result) => {
-            error!("Error deleting jokes: {:?}", result);
-            StatusCode::INTERNAL_SERVER_ERROR
-        }
-    }
+    .execute(pool)
+    .await
+    .expect("Error creating table");
 }
