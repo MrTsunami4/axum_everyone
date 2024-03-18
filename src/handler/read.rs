@@ -1,4 +1,5 @@
-use crate::{AppState, Joke};
+use super::Joke;
+use crate::AppState;
 
 static QUERY: &str = r"
 SELECT url FROM jokes

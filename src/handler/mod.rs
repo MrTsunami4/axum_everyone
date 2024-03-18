@@ -1,13 +1,20 @@
 use axum::{debug_handler, extract::State, http::StatusCode, Json};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
 use tracing::error;
 
-use crate::{AppState, Joke};
+use crate::AppState;
 
 use self::create::add;
 
 mod create;
 mod delete;
 mod read;
+
+#[derive(Serialize, Deserialize, Debug, FromRow)]
+pub struct Joke {
+    url: String,
+}
 
 #[debug_handler]
 pub async fn add_joke(

@@ -4,27 +4,15 @@
 
 use axum::{routing::get, Router};
 use clap::Parser;
-use serde::{Deserialize, Serialize};
-use sqlx::{sqlite::SqliteConnectOptions, FromRow, SqlitePool};
+use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
 use std::net::{Ipv4Addr, SocketAddr};
 use tokio::{net::TcpListener, signal};
 
 mod handler;
 
-#[derive(Serialize)]
-struct User {
-    id: u64,
-    username: String,
-}
-
 #[derive(Clone)]
 struct AppState {
     pool: SqlitePool,
-}
-
-#[derive(Serialize, Deserialize, Debug, FromRow)]
-struct Joke {
-    url: String,
 }
 
 #[derive(Parser)]
@@ -83,16 +71,16 @@ async fn index() -> &'static str {
     "Hello, World!"
 }
 
+static INIT_QUERY: &str = r"
+CREATE TABLE IF NOT EXISTS jokes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    url TEXT NOT NULL
+)
+";
+
 async fn init_table(pool: &SqlitePool) {
-    sqlx::query(
-        r"
-        CREATE TABLE IF NOT EXISTS jokes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            url TEXT NOT NULL
-        )
-        ",
-    )
-    .execute(pool)
-    .await
-    .expect("Error creating table");
+    sqlx::query(INIT_QUERY)
+        .execute(pool)
+        .await
+        .expect("Error creating table");
 }

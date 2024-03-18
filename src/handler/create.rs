@@ -1,4 +1,6 @@
-use crate::{AppState, Joke};
+use crate::AppState;
+
+use super::Joke;
 
 static QUERY: &str = r"
 INSERT INTO jokes (url)
