@@ -5,8 +5,6 @@ use tracing::error;
 
 use crate::AppState;
 
-use self::create::add;
-
 mod create;
 mod delete;
 mod read;
@@ -21,7 +19,7 @@ pub async fn add_joke(
     State(state): State<AppState>,
     Json(payload): Json<Joke>,
 ) -> Result<(StatusCode, Json<Joke>), StatusCode> {
-    let res = add(state, payload).await;
+    let res = create::add(state, payload).await;
     match res {
         Ok(joke) => Ok((StatusCode::CREATED, Json(joke))),
         Err(result) => {
