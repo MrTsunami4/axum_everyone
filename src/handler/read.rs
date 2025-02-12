@@ -1,13 +1,25 @@
-use super::Joke;
-use crate::AppState;
+use deadpool_diesel::{sqlite::Object, InteractError};
+use diesel::prelude::*;
+use diesel::result::Error;
 
-static QUERY: &str = r"
-SELECT url FROM jokes
-ORDER BY RANDOM()
-LIMIT 1
-";
+use crate::models::Joke;
 
-pub async fn get_random_joke(state: AppState) -> Result<Option<Joke>, sqlx::Error> {
-    let row = sqlx::query_as(QUERY).fetch_optional(&state.pool).await?;
-    Ok(row)
+pub async fn get_joke(id: i32, conn: Object) -> Result<Result<Option<Joke>, Error>, InteractError> {
+    use crate::schema::jokes::dsl::jokes;
+
+    conn.interact(move |conn| {
+        jokes
+            .select(Joke::as_select())
+            .find(id)
+            .first(conn)
+            .optional()
+    })
+    .await
+}
+
+pub(crate) async fn get_all_jokes(conn: Object) -> Result<Result<Vec<Joke>, Error>, InteractError> {
+    use crate::schema::jokes::dsl::jokes;
+
+    conn.interact(move |conn| jokes.select(Joke::as_select()).load(conn))
+        .await
 }

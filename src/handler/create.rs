@@ -1,14 +1,17 @@
-use crate::AppState;
+use deadpool_diesel::{sqlite::Object, InteractError};
+use diesel::{result::Error, RunQueryDsl, SelectableHelper};
 
-use super::Joke;
+use crate::{
+    models::{Joke, NewJoke},
+    schema::jokes,
+};
 
-static QUERY: &str = r"
-INSERT INTO jokes (url)
-VALUES ($1)
-";
-
-pub async fn add(state: AppState, joke: Joke) -> Result<Joke, sqlx::Error> {
-    let db = state.pool;
-    let result = sqlx::query_as(QUERY).bind(joke.url).fetch_one(&db).await?;
-    Ok(result)
+pub async fn add(conn: Object, joke: NewJoke) -> Result<Result<Joke, Error>, InteractError> {
+    conn.interact(move |conn| {
+        diesel::insert_into(jokes::table)
+            .values(&joke)
+            .returning(Joke::as_returning())
+            .get_result(conn)
+    })
+    .await
 }

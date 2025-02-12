@@ -1,57 +1,99 @@
-use axum::{debug_handler, extract::State, http::StatusCode, Json};
-use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
+use axum::{
+    debug_handler,
+    extract::{Path, State},
+    http::StatusCode,
+    Json,
+};
+use deadpool_diesel::sqlite::Pool;
 use tracing::error;
 
-use crate::AppState;
+use crate::{
+    internal_error,
+    models::{Joke, NewJoke},
+};
 
 mod create;
 mod delete;
 mod read;
 
-#[derive(Serialize, Deserialize, Debug, FromRow)]
-pub struct Joke {
-    url: String,
-}
-
 #[debug_handler]
 pub async fn add_joke(
-    State(state): State<AppState>,
-    Json(payload): Json<Joke>,
+    State(pool): State<Pool>,
+    Json(payload): Json<NewJoke>,
 ) -> Result<(StatusCode, Json<Joke>), StatusCode> {
-    let res = create::add(state, payload).await;
+    let conn = pool.get().await.map_err(internal_error)?;
+    let res = create::add(conn, payload).await;
     match res {
-        Ok(joke) => Ok((StatusCode::CREATED, Json(joke))),
+        Ok(Ok(joke)) => Ok((StatusCode::CREATED, Json(joke))),
+        Ok(Err(err)) => {
+            error!("Error inserting joke: {:?}", err);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
         Err(result) => {
-            error!("Error inserting joke: {:?}", result);
+            error!("Error connecting to the db: {:?}", result);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
 }
 
 #[debug_handler]
-pub async fn delete_all_joke(State(state): State<AppState>) -> StatusCode {
-    let result = delete::remove(state).await;
-    match result {
-        Ok(row_affected) if row_affected > 0 => StatusCode::OK,
-        Ok(_) => StatusCode::NOT_MODIFIED,
-        Err(err) => {
+pub async fn delete_all_joke(State(pool): State<Pool>) -> Result<StatusCode, StatusCode> {
+    let conn = pool.get().await.map_err(internal_error)?;
+    let row_accected = delete::remove(conn).await;
+    match row_accected {
+        Ok(Ok(row_affected)) => {
+            if row_affected > 0 {
+                Ok(StatusCode::OK)
+            } else {
+                Ok(StatusCode::NOT_MODIFIED)
+            }
+        }
+        Ok(Err(err)) => {
             error!("Error deleting jokes: {:?}", err);
-            StatusCode::INTERNAL_SERVER_ERROR
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+        Err(result) => {
+            error!("Error connecting to the db: {:?}", result);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
 }
 
 #[debug_handler]
-pub async fn get_random_joke(
-    State(state): State<AppState>,
+pub async fn get_joke(
+    Path(id): Path<i32>,
+    State(pool): State<Pool>,
 ) -> Result<(StatusCode, Json<Joke>), StatusCode> {
-    let row = read::get_random_joke(state).await;
-    match row {
-        Ok(Some(joke)) => Ok((StatusCode::OK, Json(joke))),
-        Ok(None) => Err(StatusCode::NOT_FOUND),
-        Err(e) => {
-            error!("Error getting joke: {:?}", e);
+    let conn = pool.get().await.map_err(internal_error)?;
+    let res = read::get_joke(id, conn).await;
+    match res {
+        Ok(Ok(Some(joke))) => Ok((StatusCode::OK, Json(joke))),
+        Ok(Ok(None)) => Err(StatusCode::NOT_FOUND),
+        Ok(Err(err)) => {
+            error!("Error getting joke: {:?}", err);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+        Err(result) => {
+            error!("Error connecting to the db: {:?}", result);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+#[debug_handler]
+pub async fn get_all_jokes(
+    State(pool): State<Pool>,
+) -> Result<(StatusCode, Json<Vec<Joke>>), StatusCode> {
+    let conn = pool.get().await.map_err(internal_error)?;
+    let res = read::get_all_jokes(conn).await;
+    match res {
+        Ok(Ok(jokes)) => Ok((StatusCode::OK, Json(jokes))),
+        Ok(Err(err)) => {
+            error!("Error getting jokes: {:?}", err);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+        Err(result) => {
+            error!("Error connecting to the db: {:?}", result);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }

@@ -2,18 +2,19 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 
-use axum::{routing::get, Router};
+use axum::{http::StatusCode, routing::get, Router};
 use clap::Parser;
-use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
+use deadpool_diesel::{
+    sqlite::{Manager, Pool},
+    Runtime,
+};
+use dotenvy::dotenv;
 use std::net::{Ipv4Addr, SocketAddr};
 use tokio::{net::TcpListener, signal};
 
 mod handler;
-
-#[derive(Clone)]
-struct AppState {
-    pool: SqlitePool,
-}
+mod models;
+mod schema;
 
 #[derive(Parser)]
 struct Opts {
@@ -27,25 +28,23 @@ async fn main() {
 
     let host_flag = Opts::parse().host;
 
-    let options = SqliteConnectOptions::new()
-        .filename("data.db")
-        .create_if_missing(true);
+    dotenv().ok();
 
-    let pool = SqlitePool::connect_with(options)
-        .await
-        .expect("Error connecting to database");
+    let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
-    init_table(&pool).await;
+    let manager = Manager::new(db_url, Runtime::Tokio1);
+    let pool = Pool::builder(manager).build().unwrap();
 
     let app = Router::new()
         .route("/", get(index))
         .route(
             "/jokes",
-            get(handler::get_random_joke)
+            get(handler::get_all_jokes)
                 .post(handler::add_joke)
                 .delete(handler::delete_all_joke),
         )
-        .with_state(AppState { pool });
+        .route("/joke/{id}", get(handler::get_joke))
+        .with_state(pool);
 
     let type_addr = if host_flag {
         Ipv4Addr::UNSPECIFIED
@@ -71,16 +70,9 @@ async fn index() -> &'static str {
     "Hello, World!"
 }
 
-static INIT_QUERY: &str = r"
-CREATE TABLE IF NOT EXISTS jokes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    url TEXT NOT NULL
-)
-";
-
-async fn init_table(pool: &SqlitePool) {
-    sqlx::query(INIT_QUERY)
-        .execute(pool)
-        .await
-        .expect("Error creating table");
+fn internal_error<E>(_err: E) -> StatusCode
+where
+    E: std::error::Error,
+{
+    StatusCode::INTERNAL_SERVER_ERROR
 }

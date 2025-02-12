@@ -1,11 +1,13 @@
-use crate::AppState;
+use deadpool_diesel::{sqlite::Object, InteractError};
+use diesel::{result::Error, RunQueryDsl};
 
-static QUERY: &str = r"
-DELETE FROM jokes
-";
+use crate::schema::jokes;
 
-pub async fn remove(state: AppState) -> Result<u64, sqlx::Error> {
-    let db = state.pool;
-    let res = sqlx::query(QUERY).execute(&db).await?;
-    Ok(res.rows_affected())
+// static QUERY: &str = r"
+// DELETE FROM jokes
+// ";
+
+pub async fn remove(conn: Object) -> Result<Result<usize, Error>, InteractError> {
+    conn.interact(|conn| diesel::delete(jokes::table).execute(conn))
+        .await
 }
