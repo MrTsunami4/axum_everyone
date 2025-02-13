@@ -22,7 +22,7 @@ pub async fn add_joke(
     Json(payload): Json<NewJoke>,
 ) -> Result<(StatusCode, Json<Joke>), StatusCode> {
     let conn = pool.get().await.map_err(internal_error)?;
-    let res = create::add(conn, payload).await;
+    let res = conn.interact(|conn| create::add(payload, conn)).await;
     match res {
         Ok(Ok(joke)) => Ok((StatusCode::CREATED, Json(joke))),
         Ok(Err(err)) => {
@@ -39,7 +39,7 @@ pub async fn add_joke(
 #[debug_handler]
 pub async fn delete_all_joke(State(pool): State<Pool>) -> Result<StatusCode, StatusCode> {
     let conn = pool.get().await.map_err(internal_error)?;
-    let row_accected = delete::remove(conn).await;
+    let row_accected = conn.interact(|conn| delete::remove(conn)).await;
     match row_accected {
         Ok(Ok(row_affected)) => {
             if row_affected > 0 {
@@ -65,7 +65,7 @@ pub async fn get_joke(
     State(pool): State<Pool>,
 ) -> Result<(StatusCode, Json<Joke>), StatusCode> {
     let conn = pool.get().await.map_err(internal_error)?;
-    let res = read::get_joke(id, conn).await;
+    let res = conn.interact(move |conn| read::get_joke(id, conn)).await;
     match res {
         Ok(Ok(Some(joke))) => Ok((StatusCode::OK, Json(joke))),
         Ok(Ok(None)) => Err(StatusCode::NOT_FOUND),
@@ -85,7 +85,7 @@ pub async fn get_all_jokes(
     State(pool): State<Pool>,
 ) -> Result<(StatusCode, Json<Vec<Joke>>), StatusCode> {
     let conn = pool.get().await.map_err(internal_error)?;
-    let res = read::get_all_jokes(conn).await;
+    let res = conn.interact(|conn| read::get_all_jokes(conn)).await;
     match res {
         Ok(Ok(jokes)) => Ok((StatusCode::OK, Json(jokes))),
         Ok(Err(err)) => {

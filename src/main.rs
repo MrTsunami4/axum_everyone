@@ -9,7 +9,10 @@ use deadpool_diesel::{
     Runtime,
 };
 use dotenvy::dotenv;
-use std::net::{Ipv4Addr, SocketAddr};
+use std::{
+    error::Error,
+    net::{Ipv4Addr, SocketAddr},
+};
 use tokio::{net::TcpListener, signal};
 
 mod handler;
@@ -72,7 +75,7 @@ async fn index() -> &'static str {
 
 fn internal_error<E>(_err: E) -> StatusCode
 where
-    E: std::error::Error,
+    E: Error,
 {
     StatusCode::INTERNAL_SERVER_ERROR
 }
