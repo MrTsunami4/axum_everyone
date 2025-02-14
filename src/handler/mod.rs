@@ -98,3 +98,25 @@ pub async fn get_all_jokes(
         }
     }
 }
+
+#[debug_handler]
+pub async fn delete_joke(
+    Path(id): Path<i32>,
+    State(pool): State<Pool>,
+) -> Result<StatusCode, StatusCode> {
+    let conn = pool.get().await.map_err(internal_error)?;
+    let res = conn
+        .interact(move |conn| delete::delete_joke(id, conn))
+        .await;
+    match res {
+        Ok(Ok(_)) => Ok(StatusCode::NO_CONTENT),
+        Ok(Err(err)) => {
+            error!("Error deleting joke: {:?}", err);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+        Err(result) => {
+            error!("Error connecting to the db: {:?}", result);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}

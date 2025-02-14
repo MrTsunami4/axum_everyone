@@ -46,7 +46,10 @@ async fn main() {
                 .post(handler::add_joke)
                 .delete(handler::delete_all_joke),
         )
-        .route("/joke/{id}", get(handler::get_joke))
+        .route(
+            "/joke/{id}",
+            get(handler::get_joke).delete(handler::delete_joke),
+        )
         .with_state(pool);
 
     let type_addr = if host_flag {
