@@ -2,11 +2,11 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 
-use axum::{http::StatusCode, routing::get, Router};
+use axum::{Router, http::StatusCode, routing::get};
 use clap::Parser;
 use deadpool_diesel::{
-    sqlite::{Manager, Pool},
     Runtime,
+    sqlite::{Manager, Pool},
 };
 use dotenvy::dotenv;
 use std::{

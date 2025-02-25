@@ -1,8 +1,7 @@
 use axum::{
-    debug_handler,
+    Json, debug_handler,
     extract::{Path, State},
     http::StatusCode,
-    Json,
 };
 use deadpool_diesel::sqlite::Pool;
 use tracing::error;
