@@ -5,9 +5,9 @@ use crate::{
     schema::jokes,
 };
 
-pub fn add(joke: NewJoke, conn: &mut diesel::SqliteConnection) -> Result<Joke, Error> {
+pub fn add(joke: &NewJoke, conn: &mut diesel::SqliteConnection) -> Result<Joke, Error> {
     diesel::insert_into(jokes::table)
-        .values(&joke)
+        .values(joke)
         .returning(Joke::as_returning())
         .get_result(conn)
 }
