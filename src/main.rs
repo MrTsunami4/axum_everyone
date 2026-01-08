@@ -1,23 +1,17 @@
-#![warn(clippy::all)]
-#![warn(clippy::pedantic)]
-#![warn(clippy::nursery)]
-
-use axum::{Router, http::StatusCode, routing::get};
+use axum::{Router, routing::get};
 use clap::Parser;
-use deadpool_diesel::{
-    Runtime,
-    sqlite::{Manager, Pool},
-};
 use dotenvy::dotenv;
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use tokio::{net::TcpListener, signal};
+
 use std::{
     error::Error,
     net::{Ipv4Addr, SocketAddr},
+    str::FromStr,
 };
-use tokio::{net::TcpListener, signal};
 
 mod handler;
 mod models;
-mod schema;
 
 #[derive(Parser)]
 struct Opts {
@@ -25,8 +19,13 @@ struct Opts {
     host: bool,
 }
 
+static INITIALIZE_DB_QUERY: &str = "CREATE TABLE IF NOT EXISTS jokes (
+    id INTEGER PRIMARY KEY,
+    content TEXT NOT NULL
+)";
+
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt::init();
 
     let host_flag = Opts::parse().host;
@@ -34,9 +33,13 @@ async fn main() {
     dotenv().ok();
 
     let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let options = SqliteConnectOptions::from_str(&db_url)?.create_if_missing(true);
+    let pool = SqlitePoolOptions::new()
+        .max_connections(20)
+        .connect_with(options)
+        .await?;
 
-    let manager = Manager::new(db_url, Runtime::Tokio1);
-    let pool = Pool::builder(manager).build().unwrap();
+    sqlx::query(INITIALIZE_DB_QUERY).execute(&pool).await?;
 
     let app = Router::new()
         .route("/", get(index))
@@ -58,12 +61,13 @@ async fn main() {
         Ipv4Addr::LOCALHOST
     };
     let addr = SocketAddr::from((type_addr, 3000));
-    let tcp = TcpListener::bind(addr).await.unwrap();
+    let tcp = TcpListener::bind(addr).await?;
     tracing::info!("listening on http://{}", addr);
     axum::serve(tcp, app)
         .with_graceful_shutdown(shutdown_signal())
-        .await
-        .unwrap();
+        .await?;
+
+    Ok(())
 }
 
 async fn shutdown_signal() {
@@ -74,11 +78,4 @@ async fn shutdown_signal() {
 
 async fn index() -> &'static str {
     "Hello, World!"
-}
-
-fn internal_error<E>(_err: E) -> StatusCode
-where
-    E: Error,
-{
-    StatusCode::INTERNAL_SERVER_ERROR
 }

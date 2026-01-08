@@ -1,18 +1,13 @@
-use diesel::{prelude::*, sqlite::Sqlite};
 use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
 
-use crate::schema;
-
-#[derive(Debug, Serialize, Deserialize, Queryable, Selectable)]
-#[diesel(table_name = schema::jokes)]
-#[diesel(check_for_backend(Sqlite))]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Joke {
-    pub id: i32,
-    pub url: String,
+    pub id: i64,
+    pub content: String,
 }
 
-#[derive(Insertable, Deserialize)]
-#[diesel(table_name = schema::jokes)]
+#[derive(Debug, Deserialize)]
 pub struct NewJoke {
-    pub url: String,
+    pub content: String,
 }

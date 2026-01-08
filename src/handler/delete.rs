@@ -1,11 +1,19 @@
-use diesel::{prelude::*, result::Error};
+use sqlx::SqlitePool;
 
-use crate::schema::jokes;
+static DELETE_ALL_JOKES_QUERY: &str = "DELETE FROM jokes";
+static DELETE_JOKE_BY_ID_QUERY: &str = "DELETE FROM jokes WHERE id = $1";
 
-pub fn remove(conn: &mut SqliteConnection) -> Result<usize, Error> {
-    diesel::delete(jokes::table).execute(conn)
+pub async fn remove(pool: &SqlitePool) -> Result<u64, sqlx::Error> {
+    sqlx::query(DELETE_ALL_JOKES_QUERY)
+        .execute(pool)
+        .await
+        .map(|result| result.rows_affected())
 }
 
-pub fn delete_joke(id: i32, conn: &mut SqliteConnection) -> Result<usize, Error> {
-    diesel::delete(jokes::table.filter(jokes::id.eq(id))).execute(conn)
+pub async fn delete_joke(id: i64, pool: &SqlitePool) -> Result<u64, sqlx::Error> {
+    sqlx::query(DELETE_JOKE_BY_ID_QUERY)
+        .bind(id)
+        .execute(pool)
+        .await
+        .map(|result| result.rows_affected())
 }

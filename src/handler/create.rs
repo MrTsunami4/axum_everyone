@@ -1,13 +1,14 @@
-use diesel::{prelude::*, result::Error};
+use sqlx::SqlitePool;
 
-use crate::{
-    models::{Joke, NewJoke},
-    schema::jokes,
-};
+use crate::models::{Joke, NewJoke};
 
-pub fn add(joke: &NewJoke, conn: &mut diesel::SqliteConnection) -> Result<Joke, Error> {
-    diesel::insert_into(jokes::table)
-        .values(joke)
-        .returning(Joke::as_returning())
-        .get_result(conn)
+static INSERT_JOKE_QUERY: &str = "INSERT INTO jokes (content) VALUES ($1) RETURNING id, content";
+
+pub async fn add(joke: &NewJoke, pool: &SqlitePool) -> Result<Joke, sqlx::Error> {
+    let result = sqlx::query_as(INSERT_JOKE_QUERY)
+        .bind(&joke.content)
+        .fetch_one(pool)
+        .await?;
+
+    Ok(result)
 }
