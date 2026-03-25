@@ -15,8 +15,12 @@ mod models;
 
 #[derive(Parser)]
 struct Opts {
+    /// Bind to all interfaces instead of localhost
     #[clap(long)]
     host: bool,
+    /// Port to listen on
+    #[clap(long, default_value = "3000")]
+    port: u16,
 }
 
 static INITIALIZE_DB_QUERY: &str = "CREATE TABLE IF NOT EXISTS jokes (
@@ -28,7 +32,7 @@ static INITIALIZE_DB_QUERY: &str = "CREATE TABLE IF NOT EXISTS jokes (
 async fn main() -> Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt::init();
 
-    let host_flag = Opts::parse().host;
+    let opts = Opts::parse();
 
     dotenv().ok();
 
@@ -43,24 +47,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let app = Router::new()
         .route("/", get(index))
+        .route("/health", get(health))
         .route(
             "/jokes",
             get(handler::get_all_jokes)
                 .post(handler::add_joke)
                 .delete(handler::delete_all_joke),
         )
+        .route("/joke/random", get(handler::get_random_joke))
         .route(
             "/joke/{id}",
             get(handler::get_joke).delete(handler::delete_joke),
         )
         .with_state(pool);
 
-    let type_addr = if host_flag {
+    let bind_addr = if opts.host {
         Ipv4Addr::UNSPECIFIED
     } else {
         Ipv4Addr::LOCALHOST
     };
-    let addr = SocketAddr::from((type_addr, 3000));
+    let addr = SocketAddr::from((bind_addr, opts.port));
     let tcp = TcpListener::bind(addr).await?;
     tracing::info!("listening on http://{}", addr);
     axum::serve(tcp, app)
@@ -78,4 +84,8 @@ async fn shutdown_signal() {
 
 async fn index() -> &'static str {
     "Hello, World!"
+}
+
+async fn health() -> &'static str {
+    "OK"
 }

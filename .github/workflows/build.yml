@@ -1,6 +1,6 @@
-name: Build
+name: CI
 
-on: [push]
+on: [push, pull_request]
 
 env:
   CARGO_TERM_COLOR: always
@@ -13,3 +13,9 @@ jobs:
 
       - name: Build
         run: cargo build
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Test
+        run: cargo test

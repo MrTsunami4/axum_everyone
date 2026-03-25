@@ -11,3 +11,8 @@ pub struct Joke {
 pub struct NewJoke {
     pub content: String,
 }
+
+#[derive(Debug, Serialize)]
+pub struct ErrorResponse {
+    pub error: String,
+}
