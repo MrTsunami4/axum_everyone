@@ -12,7 +12,7 @@ function Write-Header {
 function Test-Root {
     Write-Header "Test 1: GET /"
     try {
-        $response = Invoke-WebRequest -Uri "$BASE_URL/" -Method Get
+        $response = Invoke-WebRequest -Uri "$BASE_URL/" -Method Get -UseBasicParsing
         Write-Host "Status: $($response.StatusCode)" -ForegroundColor Cyan
         Write-Host "Response: $($response.Content)" -ForegroundColor White
     }
@@ -24,7 +24,7 @@ function Test-Root {
 function Test-GetAllJokes {
     Write-Header "Test 2: GET /jokes (Get all jokes)"
     try {
-        $response = Invoke-WebRequest -Uri "$BASE_URL/jokes" -Method Get
+        $response = Invoke-WebRequest -Uri "$BASE_URL/jokes" -Method Get -UseBasicParsing
         Write-Host "Status: $($response.StatusCode)" -ForegroundColor Cyan
         $content = $response.Content | ConvertFrom-Json
         Write-Host "Response: $($content | ConvertTo-Json -Depth 10)" -ForegroundColor White
@@ -42,7 +42,8 @@ function Test-CreateJoke {
         $response = Invoke-WebRequest -Uri "$BASE_URL/jokes" `
             -Method Post `
             -ContentType "application/json" `
-            -Body $body
+            -Body $body `
+            -UseBasicParsing
         Write-Host "Status: $($response.StatusCode)" -ForegroundColor Cyan
         $jsonResponse = $response.Content | ConvertFrom-Json
         Write-Host "Response: $($response.Content)" -ForegroundColor White
@@ -58,7 +59,7 @@ function Test-GetJoke {
     param([int64]$Id)
     Write-Header "Test 4: GET /joke/{id} (Get specific joke)"
     try {
-        $response = Invoke-WebRequest -Uri "$BASE_URL/joke/$Id" -Method Get
+        $response = Invoke-WebRequest -Uri "$BASE_URL/joke/$Id" -Method Get -UseBasicParsing
         Write-Host "Status: $($response.StatusCode)" -ForegroundColor Cyan
         Write-Host "Response: $($response.Content)" -ForegroundColor White
     }
@@ -71,7 +72,7 @@ function Test-DeleteJoke {
     param([int64]$Id)
     Write-Header "Test 5: DELETE /joke/{id} (Delete specific joke)"
     try {
-        $response = Invoke-WebRequest -Uri "$BASE_URL/joke/$Id" -Method Delete
+        $response = Invoke-WebRequest -Uri "$BASE_URL/joke/$Id" -Method Delete -UseBasicParsing
         Write-Host "Status: $($response.StatusCode)" -ForegroundColor Cyan
         Write-Host "Response: $($response.Content)" -ForegroundColor White
     }
@@ -83,7 +84,7 @@ function Test-DeleteJoke {
 function Test-DeleteAllJokes {
     Write-Header "Test 6: DELETE /jokes (Delete all jokes)"
     try {
-        $response = Invoke-WebRequest -Uri "$BASE_URL/jokes" -Method Delete
+        $response = Invoke-WebRequest -Uri "$BASE_URL/jokes" -Method Delete -UseBasicParsing
         Write-Host "Status: $($response.StatusCode)" -ForegroundColor Cyan
         Write-Host "Response: $($response.Content)" -ForegroundColor White
     }

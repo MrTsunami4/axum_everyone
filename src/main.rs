@@ -1,4 +1,4 @@
-use axum::{Router, routing::get};
+use axum_everyone::{create_app, models::AppState};
 use clap::Parser;
 use dotenvy::dotenv;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
@@ -10,9 +10,6 @@ use std::{
     str::FromStr,
 };
 
-mod handler;
-mod models;
-
 #[derive(Parser)]
 struct Opts {
     /// Bind to all interfaces instead of localhost
@@ -23,14 +20,14 @@ struct Opts {
     port: u16,
 }
 
-static INITIALIZE_DB_QUERY: &str = "CREATE TABLE IF NOT EXISTS jokes (
-    id INTEGER PRIMARY KEY,
-    content TEXT NOT NULL
-)";
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_target(false)
+        .with_thread_ids(false)
+        .with_file(true)
+        .with_line_number(true)
+        .init();
 
     let opts = Opts::parse();
 
@@ -43,23 +40,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .connect_with(options)
         .await?;
 
-    sqlx::query(INITIALIZE_DB_QUERY).execute(&pool).await?;
+    // Run migrations on startup
+    sqlx::migrate!("./migrations").run(&pool).await?;
+    tracing::info!("Database migrations applied");
 
-    let app = Router::new()
-        .route("/", get(index))
-        .route("/health", get(health))
-        .route(
-            "/jokes",
-            get(handler::get_all_jokes)
-                .post(handler::add_joke)
-                .delete(handler::delete_all_joke),
-        )
-        .route("/joke/random", get(handler::get_random_joke))
-        .route(
-            "/joke/{id}",
-            get(handler::get_joke).delete(handler::delete_joke),
-        )
-        .with_state(pool);
+    let state = AppState { db: pool };
+
+    let app = create_app(state);
 
     let bind_addr = if opts.host {
         Ipv4Addr::UNSPECIFIED
@@ -80,12 +67,4 @@ async fn shutdown_signal() {
     signal::ctrl_c()
         .await
         .expect("Error setting Ctrl-C signal handler");
-}
-
-async fn index() -> &'static str {
-    "Hello, World!"
-}
-
-async fn health() -> &'static str {
-    "OK"
 }
