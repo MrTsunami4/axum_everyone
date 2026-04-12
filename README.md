@@ -225,7 +225,3 @@ The project includes a GitHub Actions workflow (`.github/workflows/build.yml`) t
 - **Database Queries**: Static SQL strings with SQLx compile-time query checking
 - **Code Style**: Strict Clippy lints enabled (`all`, `pedantic`, `nursery`)
 - **Documentation**: All public `Result`-returning functions have `# Errors` doc sections
-
-## License
-
-[Add your license here]
