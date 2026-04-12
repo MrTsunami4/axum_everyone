@@ -217,7 +217,7 @@ async fn test_validation_empty_content() {
         .header("content-type", "application/json")
         .body(Body::from(
             serde_json::to_string(&CreateJokeRequest {
-                content: "".to_string(),
+                content: String::new(),
             })
             .unwrap(),
         ))
