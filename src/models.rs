@@ -21,14 +21,22 @@ pub struct Joke {
 /// Request body for creating a new joke.
 #[derive(Debug, Serialize, Deserialize, Validate)]
 pub struct CreateJokeRequest {
-    #[validate(length(min = 1, max = 1000, message = "Joke content must be between 1 and 1000 characters"))]
+    #[validate(length(
+        min = 1,
+        max = 1000,
+        message = "Joke content must be between 1 and 1000 characters"
+    ))]
     pub content: String,
 }
 
 /// Request body for updating an existing joke.
 #[derive(Debug, Serialize, Deserialize, Validate)]
 pub struct UpdateJokeRequest {
-    #[validate(length(min = 1, max = 1000, message = "Joke content must be between 1 and 1000 characters"))]
+    #[validate(length(
+        min = 1,
+        max = 1000,
+        message = "Joke content must be between 1 and 1000 characters"
+    ))]
     pub content: String,
 }
 

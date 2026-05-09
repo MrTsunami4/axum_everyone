@@ -58,8 +58,8 @@ fn log_and_internal<E: Error>(context: &str, err: E) -> AppError {
 /// Extract validation error messages into a joined string.
 fn validation_msg(err: &validator::ValidationErrors) -> String {
     err.field_errors()
-        .iter()
-        .flat_map(|(_, field_errors)| {
+        .values()
+        .flat_map(|field_errors| {
             field_errors
                 .iter()
                 .filter_map(|e| e.message.as_ref().map(std::string::ToString::to_string))
