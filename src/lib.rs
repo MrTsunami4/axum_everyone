@@ -1,39 +1,13 @@
-pub mod handler;
-pub mod models;
+pub mod error;
+pub mod handlers;
+pub mod request;
+pub mod router;
+pub mod schemas;
+pub mod state;
 
-use axum::{Router, routing::get};
-use models::AppState;
+pub use router::create_app;
 
-/// Create the Axum router with all routes.
-/// Public for integration testing.
-pub fn create_app(state: AppState) -> Router {
-    use tower_http::cors::CorsLayer;
-    use tower_http::trace::TraceLayer;
-
-    Router::new()
-        .route("/", get(index))
-        .route("/health", get(health))
-        .route(
-            "/jokes",
-            get(handler::get_all_jokes)
-                .post(handler::add_joke)
-                .delete(handler::delete_all_jokes),
-        )
-        .route(
-            "/joke/{id}",
-            get(handler::get_joke)
-                .put(handler::update_joke)
-                .delete(handler::delete_joke),
-        )
-        .layer(CorsLayer::very_permissive())
-        .layer(TraceLayer::new_for_http())
-        .with_state(state)
-}
-
-async fn index() -> &'static str {
-    "Hello, World!"
-}
-
-async fn health() -> &'static str {
-    "OK"
-}
+// Re-exports for convenience and toasty::models! macro discovery.
+pub use request::joke_request::JokeRequest;
+pub use schemas::joke::Joke;
+pub use state::AppState;

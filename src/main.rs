@@ -1,4 +1,4 @@
-use axum_everyone::{create_app, models::AppState};
+use axum_everyone::{AppState, Joke, create_app};
 use clap::Parser;
 use dotenvy::dotenv;
 use tokio::{net::TcpListener, signal};
@@ -30,7 +30,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
     let db = toasty::Db::builder()
-        .models(toasty::models!(crate::*))
+        .models(toasty::models!(Joke))
         .connect(&db_url)
         .await?;
 

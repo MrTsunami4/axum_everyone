@@ -1,8 +1,5 @@
 use axum::{body::Body, http::Request, response::Response};
-use axum_everyone::{
-    create_app,
-    models::{AppState, Joke, JokeRequest},
-};
+use axum_everyone::{AppState, Joke, JokeRequest, create_app};
 use http_body_util::BodyExt;
 use tower::ServiceExt;
 
