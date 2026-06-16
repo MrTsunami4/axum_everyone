@@ -25,7 +25,6 @@ pub fn create_app(state: AppState) -> Router {
                 .put(handler::update_joke)
                 .delete(handler::delete_joke),
         )
-        .route("/joke/random", get(handler::get_random_joke))
         .layer(CorsLayer::very_permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state)

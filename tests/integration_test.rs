@@ -1,17 +1,20 @@
 use axum::{body::Body, http::Request, response::Response};
 use axum_everyone::{
     create_app,
-    models::{AppState, CreateJokeRequest, Joke, PaginatedJokesResponse, UpdateJokeRequest},
+    models::{AppState, Joke, JokeRequest},
 };
 use http_body_util::BodyExt;
-use sqlx::SqlitePool;
 use tower::ServiceExt;
 
-/// Create a fresh test database pool with migrations applied.
-async fn create_test_pool() -> SqlitePool {
-    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
-    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
-    pool
+/// Create a fresh test database with schema applied.
+async fn create_test_db() -> toasty::Db {
+    let db = toasty::Db::builder()
+        .models(toasty::models!(crate::*))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    db.push_schema().await.unwrap();
+    db
 }
 
 /// Helper to extract the JSON body from a response.
@@ -22,8 +25,8 @@ async fn json_body<T: for<'de> serde::Deserialize<'de>>(response: Response) -> T
 
 #[tokio::test]
 async fn test_health_check() {
-    let pool = create_test_pool().await;
-    let state = AppState { db: pool };
+    let db = create_test_db().await;
+    let state = AppState { db };
     let app = create_app(state);
 
     let response = app
@@ -43,8 +46,8 @@ async fn test_health_check() {
 
 #[tokio::test]
 async fn test_create_and_get_joke() {
-    let pool = create_test_pool().await;
-    let state = AppState { db: pool };
+    let db = create_test_db().await;
+    let state = AppState { db };
     let app = create_app(state);
 
     // Create a joke
@@ -53,7 +56,7 @@ async fn test_create_and_get_joke() {
         .uri("/jokes")
         .header("content-type", "application/json")
         .body(Body::from(
-            serde_json::to_string(&CreateJokeRequest {
+            serde_json::to_string(&JokeRequest {
                 content: "Why did the chicken cross the road?".to_string(),
             })
             .unwrap(),
@@ -82,8 +85,8 @@ async fn test_create_and_get_joke() {
 
 #[tokio::test]
 async fn test_update_joke() {
-    let pool = create_test_pool().await;
-    let state = AppState { db: pool };
+    let db = create_test_db().await;
+    let state = AppState { db };
     let app = create_app(state);
 
     // Create a joke first
@@ -92,7 +95,7 @@ async fn test_update_joke() {
         .uri("/jokes")
         .header("content-type", "application/json")
         .body(Body::from(
-            serde_json::to_string(&CreateJokeRequest {
+            serde_json::to_string(&JokeRequest {
                 content: "Old joke".to_string(),
             })
             .unwrap(),
@@ -109,7 +112,7 @@ async fn test_update_joke() {
         .uri(format!("/joke/{joke_id}"))
         .header("content-type", "application/json")
         .body(Body::from(
-            serde_json::to_string(&UpdateJokeRequest {
+            serde_json::to_string(&JokeRequest {
                 content: "Updated joke".to_string(),
             })
             .unwrap(),
@@ -125,8 +128,8 @@ async fn test_update_joke() {
 
 #[tokio::test]
 async fn test_delete_joke() {
-    let pool = create_test_pool().await;
-    let state = AppState { db: pool };
+    let db = create_test_db().await;
+    let state = AppState { db };
     let app = create_app(state);
 
     // Create a joke first
@@ -135,7 +138,7 @@ async fn test_delete_joke() {
         .uri("/jokes")
         .header("content-type", "application/json")
         .body(Body::from(
-            serde_json::to_string(&CreateJokeRequest {
+            serde_json::to_string(&JokeRequest {
                 content: "Delete me".to_string(),
             })
             .unwrap(),
@@ -167,9 +170,9 @@ async fn test_delete_joke() {
 }
 
 #[tokio::test]
-async fn test_get_all_jokes_with_pagination() {
-    let pool = create_test_pool().await;
-    let state = AppState { db: pool };
+async fn test_get_all_jokes() {
+    let db = create_test_db().await;
+    let state = AppState { db };
     let app = create_app(state);
 
     // Create 3 jokes
@@ -179,7 +182,7 @@ async fn test_get_all_jokes_with_pagination() {
             .uri("/jokes")
             .header("content-type", "application/json")
             .body(Body::from(
-                serde_json::to_string(&CreateJokeRequest {
+                serde_json::to_string(&JokeRequest {
                     content: format!("Joke {i}"),
                 })
                 .unwrap(),
@@ -198,17 +201,14 @@ async fn test_get_all_jokes_with_pagination() {
     let response = app.clone().oneshot(get_req).await.unwrap();
     assert_eq!(response.status(), axum::http::StatusCode::OK);
 
-    let paginated: PaginatedJokesResponse = json_body(response).await;
-    assert_eq!(paginated.total, 3);
-    assert_eq!(paginated.jokes.len(), 3);
-    assert_eq!(paginated.page, 1);
-    assert_eq!(paginated.per_page, 20);
+    let jokes: Vec<Joke> = json_body(response).await;
+    assert_eq!(jokes.len(), 3);
 }
 
 #[tokio::test]
 async fn test_validation_empty_content() {
-    let pool = create_test_pool().await;
-    let state = AppState { db: pool };
+    let db = create_test_db().await;
+    let state = AppState { db };
     let app = create_app(state);
 
     let create_req = Request::builder()
@@ -216,7 +216,7 @@ async fn test_validation_empty_content() {
         .uri("/jokes")
         .header("content-type", "application/json")
         .body(Body::from(
-            serde_json::to_string(&CreateJokeRequest {
+            serde_json::to_string(&JokeRequest {
                 content: String::new(),
             })
             .unwrap(),
@@ -231,43 +231,9 @@ async fn test_validation_empty_content() {
 }
 
 #[tokio::test]
-async fn test_random_joke() {
-    let pool = create_test_pool().await;
-    let state = AppState { db: pool };
-    let app = create_app(state);
-
-    // Create a joke first
-    let create_req = Request::builder()
-        .method("POST")
-        .uri("/jokes")
-        .header("content-type", "application/json")
-        .body(Body::from(
-            serde_json::to_string(&CreateJokeRequest {
-                content: "Random joke".to_string(),
-            })
-            .unwrap(),
-        ))
-        .unwrap();
-
-    let _response = app.clone().oneshot(create_req).await.unwrap();
-
-    // Get random joke
-    let get_req = Request::builder()
-        .uri("/joke/random")
-        .body(Body::empty())
-        .unwrap();
-
-    let response = app.clone().oneshot(get_req).await.unwrap();
-    assert_eq!(response.status(), axum::http::StatusCode::OK);
-
-    let joke: Joke = json_body(response).await;
-    assert_eq!(joke.content, "Random joke");
-}
-
-#[tokio::test]
 async fn test_delete_all_jokes() {
-    let pool = create_test_pool().await;
-    let state = AppState { db: pool };
+    let db = create_test_db().await;
+    let state = AppState { db };
     let app = create_app(state);
 
     // Create 2 jokes
@@ -277,7 +243,7 @@ async fn test_delete_all_jokes() {
             .uri("/jokes")
             .header("content-type", "application/json")
             .body(Body::from(
-                serde_json::to_string(&CreateJokeRequest {
+                serde_json::to_string(&JokeRequest {
                     content: "Joke".to_string(),
                 })
                 .unwrap(),
@@ -304,6 +270,6 @@ async fn test_delete_all_jokes() {
         .unwrap();
 
     let response = app.clone().oneshot(get_req).await.unwrap();
-    let paginated: PaginatedJokesResponse = json_body(response).await;
-    assert_eq!(paginated.total, 0);
+    let jokes: Vec<Joke> = json_body(response).await;
+    assert!(jokes.is_empty());
 }
