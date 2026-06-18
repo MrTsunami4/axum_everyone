@@ -9,6 +9,7 @@ clap = { version = "4.6.1", features = ["derive"] }
 dotenvy = "0.15.7"
 jiff = { version = "0.2", features = ["serde"] }
 serde = { version = "1.0.228", features = ["derive"] }
+thiserror = "2.0.18"
 toasty = { version = "0.7", features = ["sqlite", "jiff"] }
 tokio = { version = "1.52.3", features = [
     "macros",

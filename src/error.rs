@@ -1,50 +1,33 @@
 use axum::{
-    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use thiserror::Error;
 use tracing::error;
 
-use std::error::Error;
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum AppError {
-    NotFound,
-    Validation(String),
-    Internal,
+    #[error(transparent)]
+    Validation(#[from] validator::ValidationErrors),
+    #[error(transparent)]
+    DBError(#[from] toasty::Error),
 }
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let (status, msg) = match self {
-            Self::NotFound => (StatusCode::NOT_FOUND, "Not found".to_string()),
-            Self::Validation(msg) => (StatusCode::UNPROCESSABLE_ENTITY, msg),
-            Self::Internal => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Internal server error".to_string(),
-            ),
-        };
-        (status, Json(msg)).into_response()
-    }
-}
-
-impl From<validator::ValidationErrors> for AppError {
-    fn from(err: validator::ValidationErrors) -> Self {
-        Self::Validation(err.to_string())
-    }
-}
-
-impl From<toasty::Error> for AppError {
-    fn from(err: toasty::Error) -> Self {
-        if err.is_record_not_found() {
-            Self::NotFound
-        } else {
-            log_and_internal("Database error", err)
+        match self {
+            Self::Validation(err) => (StatusCode::BAD_REQUEST, err.to_string()),
+            Self::DBError(err) if err.is_record_not_found() => {
+                (StatusCode::NOT_FOUND, "Not found".to_string())
+            }
+            Self::DBError(err) => {
+                error!("{err:?}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error".to_string(),
+                )
+            }
         }
+        .into_response()
     }
-}
-
-fn log_and_internal<E: Error>(context: &str, err: E) -> AppError {
-    error!("{}: {:?}", context, err);
-    AppError::Internal
 }

@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
+use toasty::Model;
 
 /// Represents a joke in the database.
-#[derive(Debug, Clone, Serialize, Deserialize, toasty::Model)]
+#[derive(Debug, Clone, Serialize, Deserialize, Model)]
 pub struct Joke {
     #[key]
     #[auto]
