@@ -1,20 +1,20 @@
 use serde::{Deserialize, Serialize};
 use toasty::Model;
 
-use crate::schemas::user::User;
+use crate::schemas::joke::Joke;
 
-/// Represents a joke in the database.
+/// Represents a user who owns jokes.
 #[derive(Debug, Clone, Serialize, Deserialize, Model)]
-pub struct Joke {
+pub struct User {
     #[key]
     #[auto]
     pub id: i64,
-    pub content: String,
-    #[index]
-    pub user_id: i64,
-    #[belongs_to(key = user_id, references = id)]
+    pub name: String,
+    #[unique]
+    pub email: String,
+    #[has_many]
     #[serde(skip_serializing_if = "toasty::Deferred::is_unloaded", default)]
-    pub user: toasty::Deferred<User>,
+    pub jokes: toasty::Deferred<Vec<Joke>>,
     #[auto]
     pub created_at: jiff::Timestamp,
     #[auto]

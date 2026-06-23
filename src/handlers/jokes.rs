@@ -6,15 +6,18 @@ use axum::{
 use validator::Validate;
 
 use crate::{
-    error::AppError, request::joke_request::JokeRequest, schemas::joke::Joke, state::AppState,
+    error::AppError, request::joke_request::JokeRequest, schemas::joke::Joke, schemas::user::User,
+    state::AppState,
 };
 
 pub async fn add_joke(
+    Path(user_id): Path<i64>,
     State(mut state): State<AppState>,
     Json(payload): Json<JokeRequest>,
 ) -> Result<(StatusCode, Json<Joke>), AppError> {
     payload.validate()?;
-    let joke = toasty::create!(Joke {
+    let user = User::get_by_id(&mut state.db, user_id).await?;
+    let joke = toasty::create!(in user.jokes() {
         content: payload.content
     })
     .exec(&mut state.db)
@@ -52,6 +55,15 @@ pub async fn get_all_jokes(State(mut state): State<AppState>) -> Result<Json<Vec
         .order_by(Joke::fields().id().asc())
         .exec(&mut state.db)
         .await?;
+    Ok(Json(jokes))
+}
+
+pub async fn get_user_jokes(
+    Path(user_id): Path<i64>,
+    State(mut state): State<AppState>,
+) -> Result<Json<Vec<Joke>>, AppError> {
+    let user = User::get_by_id(&mut state.db, user_id).await?;
+    let jokes = user.jokes().exec(&mut state.db).await?;
     Ok(Json(jokes))
 }
 

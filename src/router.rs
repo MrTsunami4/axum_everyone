@@ -13,10 +13,24 @@ pub fn create_app(state: AppState) -> Router {
         .route("/", get(handlers::health::index))
         .route("/health", get(handlers::health::health))
         .route(
+            "/users",
+            get(handlers::users::get_all_users)
+                .post(handlers::users::add_user)
+                .delete(handlers::users::delete_all_users),
+        )
+        .route(
+            "/user/{id}",
+            get(handlers::users::get_user)
+                .put(handlers::users::update_user)
+                .delete(handlers::users::delete_user),
+        )
+        .route(
+            "/users/{user_id}/jokes",
+            get(handlers::jokes::get_user_jokes).post(handlers::jokes::add_joke),
+        )
+        .route(
             "/jokes",
-            get(handlers::jokes::get_all_jokes)
-                .post(handlers::jokes::add_joke)
-                .delete(handlers::jokes::delete_all_jokes),
+            get(handlers::jokes::get_all_jokes).delete(handlers::jokes::delete_all_jokes),
         )
         .route(
             "/joke/{id}",
