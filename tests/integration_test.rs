@@ -353,3 +353,52 @@ async fn test_delete_user() {
     let response = app.oneshot(get_req).await.unwrap();
     assert_eq!(response.status(), axum::http::StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn test_get_jokes_pagination() {
+    let db = create_test_db().await;
+    let state = AppState { db };
+    let app = create_app(state);
+
+    let user = create_user(app.clone(), "Pagination tester", "paginator@example.com").await;
+    create_joke(app.clone(), user.id, "Joke 1").await;
+    create_joke(app.clone(), user.id, "Joke 2").await;
+    create_joke(app.clone(), user.id, "Joke 3").await;
+
+    // Test with no pagination query parameters (fallback to get all)
+    let get_all_req = Request::builder()
+        .uri("/jokes")
+        .body(Body::empty())
+        .unwrap();
+    let response = app.clone().oneshot(get_all_req).await.unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let all_jokes: Vec<Joke> = json_body(response).await;
+    assert_eq!(all_jokes.len(), 3);
+    assert_eq!(all_jokes[0].content, "Joke 1");
+    assert_eq!(all_jokes[1].content, "Joke 2");
+    assert_eq!(all_jokes[2].content, "Joke 3");
+
+    // Test limit=2
+    let get_limit_req = Request::builder()
+        .uri("/jokes?limit=2")
+        .body(Body::empty())
+        .unwrap();
+    let response = app.clone().oneshot(get_limit_req).await.unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let limit_jokes: Vec<Joke> = json_body(response).await;
+    assert_eq!(limit_jokes.len(), 2);
+    assert_eq!(limit_jokes[0].content, "Joke 1");
+    assert_eq!(limit_jokes[1].content, "Joke 2");
+
+    // Test limit=2&offset=1
+    let get_offset_req = Request::builder()
+        .uri("/jokes?limit=2&offset=1")
+        .body(Body::empty())
+        .unwrap();
+    let response = app.oneshot(get_offset_req).await.unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let offset_jokes: Vec<Joke> = json_body(response).await;
+    assert_eq!(offset_jokes.len(), 2);
+    assert_eq!(offset_jokes[0].content, "Joke 2");
+    assert_eq!(offset_jokes[1].content, "Joke 3");
+}

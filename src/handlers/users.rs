@@ -3,12 +3,14 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
+use tracing::instrument;
 use validator::Validate;
 
 use crate::{
     error::AppError, request::user_request::UserRequest, schemas::user::User, state::AppState,
 };
 
+#[instrument(skip(state))]
 pub async fn add_user(
     State(mut state): State<AppState>,
     Json(payload): Json<UserRequest>,
@@ -23,6 +25,7 @@ pub async fn add_user(
     Ok((StatusCode::CREATED, Json(user)))
 }
 
+#[instrument(skip(state))]
 pub async fn update_user(
     Path(id): Path<i64>,
     State(mut state): State<AppState>,
@@ -38,11 +41,13 @@ pub async fn update_user(
     Ok(StatusCode::OK)
 }
 
+#[instrument(skip(state))]
 pub async fn delete_all_users(State(mut state): State<AppState>) -> Result<StatusCode, AppError> {
     User::all().delete().exec(&mut state.db).await?;
     Ok(StatusCode::OK)
 }
 
+#[instrument(skip(state))]
 pub async fn get_user(
     Path(id): Path<i64>,
     State(mut state): State<AppState>,
@@ -51,6 +56,7 @@ pub async fn get_user(
     Ok(Json(user))
 }
 
+#[instrument(skip(state))]
 pub async fn get_all_users(State(mut state): State<AppState>) -> Result<Json<Vec<User>>, AppError> {
     let users = User::all()
         .order_by(User::fields().id().asc())
@@ -59,6 +65,7 @@ pub async fn get_all_users(State(mut state): State<AppState>) -> Result<Json<Vec
     Ok(Json(users))
 }
 
+#[instrument(skip(state))]
 pub async fn delete_user(
     Path(id): Path<i64>,
     State(mut state): State<AppState>,

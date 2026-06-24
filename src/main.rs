@@ -27,7 +27,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     dotenv().ok();
 
-    let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let db_url = env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:./data.db".to_string());
 
     let db = toasty::Db::builder()
         .models(toasty::models!(Joke, User))

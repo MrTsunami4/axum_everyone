@@ -1,15 +1,25 @@
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
 };
+use tracing::instrument;
 use validator::Validate;
+
+use serde::Deserialize;
 
 use crate::{
     error::AppError, request::joke_request::JokeRequest, schemas::joke::Joke, schemas::user::User,
     state::AppState,
 };
 
+#[derive(Debug, Deserialize, Clone, Copy)]
+pub struct Pagination {
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
+}
+
+#[instrument(skip(state))]
 pub async fn add_joke(
     Path(user_id): Path<i64>,
     State(mut state): State<AppState>,
@@ -25,6 +35,7 @@ pub async fn add_joke(
     Ok((StatusCode::CREATED, Json(joke)))
 }
 
+#[instrument(skip(state))]
 pub async fn update_joke(
     Path(id): Path<i64>,
     State(mut state): State<AppState>,
@@ -37,11 +48,13 @@ pub async fn update_joke(
     Ok(StatusCode::OK)
 }
 
+#[instrument(skip(state))]
 pub async fn delete_all_jokes(State(mut state): State<AppState>) -> Result<StatusCode, AppError> {
     Joke::all().delete().exec(&mut state.db).await?;
     Ok(StatusCode::OK)
 }
 
+#[instrument(skip(state))]
 pub async fn get_joke(
     Path(id): Path<i64>,
     State(mut state): State<AppState>,
@@ -50,14 +63,23 @@ pub async fn get_joke(
     Ok(Json(joke))
 }
 
-pub async fn get_all_jokes(State(mut state): State<AppState>) -> Result<Json<Vec<Joke>>, AppError> {
-    let jokes = Joke::all()
-        .order_by(Joke::fields().id().asc())
-        .exec(&mut state.db)
-        .await?;
+#[instrument(skip(state))]
+pub async fn get_all_jokes(
+    Query(pagination): Query<Pagination>,
+    State(mut state): State<AppState>,
+) -> Result<Json<Vec<Joke>>, AppError> {
+    let mut query = Joke::all().order_by(Joke::fields().id().asc());
+    if let Some(limit) = pagination.limit {
+        query = query.limit(limit);
+    }
+    if let Some(offset) = pagination.offset {
+        query = query.offset(offset);
+    }
+    let jokes = query.exec(&mut state.db).await?;
     Ok(Json(jokes))
 }
 
+#[instrument(skip(state))]
 pub async fn get_user_jokes(
     Path(user_id): Path<i64>,
     State(mut state): State<AppState>,
@@ -67,6 +89,7 @@ pub async fn get_user_jokes(
     Ok(Json(jokes))
 }
 
+#[instrument(skip(state))]
 pub async fn delete_joke(
     Path(id): Path<i64>,
     State(mut state): State<AppState>,
