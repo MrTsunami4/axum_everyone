@@ -32,6 +32,7 @@ pub fn create_app(state: AppState) -> Router {
             "/jokes",
             get(handlers::jokes::get_all_jokes).delete(handlers::jokes::delete_all_jokes),
         )
+        .route("/jokes/paginate", get(handlers::jokes::paginate_jokes))
         .route(
             "/joke/{id}",
             get(handlers::jokes::get_joke)

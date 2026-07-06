@@ -10,3 +10,9 @@ pub struct JokeRequest {
     ))]
     pub content: String,
 }
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct PaginationParams {
+    pub cursor: Option<i64>,
+    pub page_size: Option<usize>,
+}

@@ -9,7 +9,10 @@ use validator::Validate;
 use serde::Deserialize;
 
 use crate::{
-    error::AppError, request::joke_request::JokeRequest, schemas::joke::Joke, schemas::user::User,
+    SerializablePage,
+    error::AppError,
+    request::joke_request::{JokeRequest, PaginationParams},
+    schemas::{joke::Joke, user::User},
     state::AppState,
 };
 
@@ -84,12 +87,25 @@ pub async fn get_user_jokes(
     Path(user_id): Path<i64>,
     State(mut state): State<AppState>,
 ) -> Result<Json<Vec<Joke>>, AppError> {
-    let user = User::get_by_id(&mut state.db, user_id).await?;
-    let jokes = user.jokes().exec(&mut state.db).await?;
+    let jokes = Joke::filter_by_user_id(user_id).exec(&mut state.db).await?;
     Ok(Json(jokes))
 }
 
-#[instrument(skip(state))]
+pub async fn paginate_jokes(
+    State(mut state): State<AppState>,
+    Query(params): Query<PaginationParams>,
+) -> Result<Json<SerializablePage<Joke>>, AppError> {
+    let query = Joke::all()
+        .order_by(Joke::fields().id().asc())
+        .paginate(params.page_size.unwrap_or(10));
+    let query = match params.cursor {
+        Some(cursor) => query.after(cursor),
+        None => query,
+    };
+    let page: SerializablePage<Joke> = query.exec(&mut state.db).await?.into();
+    Ok(Json(page))
+}
+
 pub async fn delete_joke(
     Path(id): Path<i64>,
     State(mut state): State<AppState>,
