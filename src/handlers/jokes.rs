@@ -6,8 +6,6 @@ use axum::{
 use tracing::instrument;
 use validator::Validate;
 
-use serde::Deserialize;
-
 use crate::{
     SerializablePage,
     error::AppError,
@@ -15,12 +13,6 @@ use crate::{
     schemas::{joke::Joke, user::User},
     state::AppState,
 };
-
-#[derive(Debug, Deserialize, Clone, Copy)]
-pub struct Pagination {
-    pub limit: Option<usize>,
-    pub offset: Option<usize>,
-}
 
 #[instrument(skip(state))]
 pub async fn add_joke(
@@ -68,18 +60,11 @@ pub async fn get_joke(
 }
 
 #[instrument(skip(state))]
-pub async fn get_all_jokes(
-    Query(pagination): Query<Pagination>,
-    State(mut state): State<AppState>,
-) -> Result<Json<Vec<Joke>>, AppError> {
-    let mut query = Joke::all().order_by(Joke::fields().id().asc());
-    if let Some(limit) = pagination.limit {
-        query = query.limit(limit);
-    }
-    if let Some(offset) = pagination.offset {
-        query = query.offset(offset);
-    }
-    let jokes = query.exec(&mut state.db).await?;
+pub async fn get_all_jokes(State(mut state): State<AppState>) -> Result<Json<Vec<Joke>>, AppError> {
+    let jokes = Joke::all()
+        .order_by(Joke::fields().id().asc())
+        .exec(&mut state.db)
+        .await?;
     Ok(Json(jokes))
 }
 
