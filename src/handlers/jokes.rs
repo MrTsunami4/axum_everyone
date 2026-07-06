@@ -45,7 +45,8 @@ pub async fn update_joke(
     Json(payload): Json<JokeRequest>,
 ) -> Result<StatusCode, AppError> {
     payload.validate()?;
-    toasty::update!(Joke::filter_by_id(id) { content: payload.content })
+    Joke::update_by_id(id)
+        .content(payload.content)
         .exec(&mut state.db)
         .await?;
     Ok(StatusCode::OK)
@@ -91,6 +92,7 @@ pub async fn get_user_jokes(
     Ok(Json(jokes))
 }
 
+#[instrument(skip(state))]
 pub async fn paginate_jokes(
     State(mut state): State<AppState>,
     Query(params): Query<PaginationParams>,
@@ -106,6 +108,7 @@ pub async fn paginate_jokes(
     Ok(Json(page))
 }
 
+#[instrument(skip(state))]
 pub async fn delete_joke(
     Path(id): Path<i64>,
     State(mut state): State<AppState>,
