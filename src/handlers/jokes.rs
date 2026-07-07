@@ -16,6 +16,19 @@ use crate::{
     state::AppState,
 };
 
+#[utoipa::path(
+    post,
+    path = "/users/{user_id}/jokes",
+    tag = "Jokes",
+    request_body = JokeRequest,
+    params(
+        ("user_id" = i64, Path, description = "User ID"),
+    ),
+    responses(
+        (status = 201, description = "Joke created", body = Joke),
+        (status = 404, description = "User not found", body = String),
+    ),
+)]
 #[instrument(skip(state))]
 pub async fn add_joke(
     Path(user_id): Path<i64>,
@@ -31,6 +44,19 @@ pub async fn add_joke(
     Ok((StatusCode::CREATED, Json(joke)))
 }
 
+#[utoipa::path(
+    put,
+    path = "/joke/{id}",
+    tag = "Jokes",
+    request_body = JokeRequest,
+    params(
+        ("id" = i64, Path, description = "Joke ID"),
+    ),
+    responses(
+        (status = 200, description = "Joke updated"),
+        (status = 400, description = "Validation error", body = String),
+    ),
+)]
 #[instrument(skip(state))]
 pub async fn update_joke(
     Path(id): Path<i64>,
@@ -44,12 +70,30 @@ pub async fn update_joke(
     Ok(StatusCode::OK)
 }
 
+#[utoipa::path(
+    delete,
+    path = "/jokes",
+    tag = "Jokes",
+    responses((status = 200, description = "All jokes deleted")),
+)]
 #[instrument(skip(state))]
 pub async fn delete_all_jokes(State(mut state): State<AppState>) -> Result<StatusCode, AppError> {
     Joke::all().delete().exec(&mut state.db).await?;
     Ok(StatusCode::OK)
 }
 
+#[utoipa::path(
+    get,
+    path = "/joke/{id}",
+    tag = "Jokes",
+    params(
+        ("id" = i64, Path, description = "Joke ID"),
+    ),
+    responses(
+        (status = 200, description = "Joke found", body = Joke),
+        (status = 404, description = "Joke not found", body = String),
+    ),
+)]
 #[instrument(skip(state))]
 pub async fn get_joke(
     Path(id): Path<i64>,
@@ -59,6 +103,12 @@ pub async fn get_joke(
     Ok(Json(joke))
 }
 
+#[utoipa::path(
+    get,
+    path = "/jokes",
+    tag = "Jokes",
+    responses((status = 200, description = "List of all jokes", body = Vec<Joke>)),
+)]
 #[instrument(skip(state))]
 pub async fn get_all_jokes(State(mut state): State<AppState>) -> Result<Json<Vec<Joke>>, AppError> {
     let jokes = Joke::all()
@@ -68,6 +118,15 @@ pub async fn get_all_jokes(State(mut state): State<AppState>) -> Result<Json<Vec
     Ok(Json(jokes))
 }
 
+#[utoipa::path(
+    get,
+    path = "/users/{user_id}/jokes",
+    tag = "Jokes",
+    params(
+        ("user_id" = i64, Path, description = "User ID"),
+    ),
+    responses((status = 200, description = "List of jokes for the user", body = Vec<Joke>)),
+)]
 #[instrument(skip(state))]
 pub async fn get_user_jokes(
     Path(user_id): Path<i64>,
@@ -77,6 +136,15 @@ pub async fn get_user_jokes(
     Ok(Json(jokes))
 }
 
+#[utoipa::path(
+    get,
+    path = "/jokes/paginate",
+    tag = "Jokes",
+    params(PaginationParams),
+    responses(
+        (status = 200, description = "Paginated jokes", body = SerializablePage<Joke>),
+    ),
+)]
 #[instrument(skip(state))]
 pub async fn paginate_jokes(
     State(mut state): State<AppState>,
@@ -93,6 +161,18 @@ pub async fn paginate_jokes(
     Ok(Json(page))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/joke/{id}",
+    tag = "Jokes",
+    params(
+        ("id" = i64, Path, description = "Joke ID"),
+    ),
+    responses(
+        (status = 200, description = "Joke deleted"),
+        (status = 404, description = "Joke not found", body = String),
+    ),
+)]
 #[instrument(skip(state))]
 pub async fn delete_joke(
     Path(id): Path<i64>,

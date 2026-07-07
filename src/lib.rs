@@ -1,5 +1,6 @@
 pub mod error;
 pub mod handlers;
+pub mod openapi;
 pub mod request;
 pub mod router;
 pub mod schemas;
@@ -12,8 +13,9 @@ pub use request::{joke_request::JokeRequest, user_request::UserRequest};
 pub use schemas::{joke::Joke, user::User};
 pub use state::AppState;
 use toasty::stmt::{Page, Value};
+use utoipa::ToSchema;
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, ToSchema)]
 pub struct SerializablePage<T> {
     pub items: Vec<T>,
     pub cursor: Option<i64>,

@@ -12,6 +12,16 @@ use crate::{
     state::AppState,
 };
 
+#[utoipa::path(
+    post,
+    path = "/users",
+    tag = "Users",
+    request_body = UserRequest,
+    responses(
+        (status = 201, description = "User created", body = User),
+        (status = 400, description = "Validation error", body = String),
+    ),
+)]
 #[instrument(skip(state))]
 pub async fn add_user(
     State(mut state): State<AppState>,
@@ -26,6 +36,19 @@ pub async fn add_user(
     Ok((StatusCode::CREATED, Json(user)))
 }
 
+#[utoipa::path(
+    put,
+    path = "/user/{id}",
+    tag = "Users",
+    request_body = UserRequest,
+    params(
+        ("id" = i64, Path, description = "User ID"),
+    ),
+    responses(
+        (status = 200, description = "User updated"),
+        (status = 400, description = "Validation error", body = String),
+    ),
+)]
 #[instrument(skip(state))]
 pub async fn update_user(
     Path(id): Path<i64>,
@@ -41,12 +64,30 @@ pub async fn update_user(
     Ok(StatusCode::OK)
 }
 
+#[utoipa::path(
+    delete,
+    path = "/users",
+    tag = "Users",
+    responses((status = 200, description = "All users deleted")),
+)]
 #[instrument(skip(state))]
 pub async fn delete_all_users(State(mut state): State<AppState>) -> Result<StatusCode, AppError> {
     User::all().delete().exec(&mut state.db).await?;
     Ok(StatusCode::OK)
 }
 
+#[utoipa::path(
+    get,
+    path = "/user/{id}",
+    tag = "Users",
+    params(
+        ("id" = i64, Path, description = "User ID"),
+    ),
+    responses(
+        (status = 200, description = "User found", body = User),
+        (status = 404, description = "User not found", body = String),
+    ),
+)]
 #[instrument(skip(state))]
 pub async fn get_user(
     Path(id): Path<i64>,
@@ -56,6 +97,12 @@ pub async fn get_user(
     Ok(Json(user))
 }
 
+#[utoipa::path(
+    get,
+    path = "/users",
+    tag = "Users",
+    responses((status = 200, description = "List of all users", body = Vec<User>)),
+)]
 #[instrument(skip(state))]
 pub async fn get_all_users(State(mut state): State<AppState>) -> Result<Json<Vec<User>>, AppError> {
     let users = User::all()
@@ -65,6 +112,18 @@ pub async fn get_all_users(State(mut state): State<AppState>) -> Result<Json<Vec
     Ok(Json(users))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/user/{id}",
+    tag = "Users",
+    params(
+        ("id" = i64, Path, description = "User ID"),
+    ),
+    responses(
+        (status = 200, description = "User deleted"),
+        (status = 404, description = "User not found", body = String),
+    ),
+)]
 #[instrument(skip(state))]
 pub async fn delete_user(
     Path(id): Path<i64>,

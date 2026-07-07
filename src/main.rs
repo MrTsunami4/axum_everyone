@@ -7,6 +7,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use std::{
     env,
     error::Error,
+    fs,
     net::{Ipv4Addr, SocketAddr},
 };
 
@@ -46,8 +47,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .connect(&db_url)
         .await?;
 
-    db.push_schema().await?;
-    tracing::info!("Database schema applied");
+    if let Ok(false) = fs::exists("data.db") {
+        db.push_schema().await?;
+        tracing::info!("Database schema applied");
+    } else {
+        tracing::info!("Database schema already applied");
+    }
 
     let state = AppState { db };
 
