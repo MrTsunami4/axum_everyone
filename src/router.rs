@@ -1,4 +1,5 @@
 use axum::{Router, routing::get};
+use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use crate::handlers;
 use crate::state::AppState;
@@ -6,9 +7,6 @@ use crate::state::AppState;
 /// Create the Axum router with all routes.
 /// Public for integration testing.
 pub fn create_app(state: AppState) -> Router {
-    use tower_http::cors::CorsLayer;
-    use tower_http::trace::TraceLayer;
-
     Router::new()
         .route("/", get(handlers::health::index))
         .route("/health", get(handlers::health::health))

@@ -8,10 +8,8 @@ pub mod state;
 pub use router::create_app;
 
 // Re-exports for convenience and toasty::models! macro discovery.
-pub use request::joke_request::JokeRequest;
-pub use request::user_request::UserRequest;
-pub use schemas::joke::Joke;
-pub use schemas::user::User;
+pub use request::{joke_request::JokeRequest, user_request::UserRequest};
+pub use schemas::{joke::Joke, user::User};
 pub use state::AppState;
 use toasty::stmt::{Page, Value};
 

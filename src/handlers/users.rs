@@ -4,18 +4,19 @@ use axum::{
     http::StatusCode,
 };
 use tracing::instrument;
-use validator::Validate;
 
 use crate::{
-    error::AppError, request::user_request::UserRequest, schemas::user::User, state::AppState,
+    error::AppError,
+    request::{ValidatedJson, user_request::UserRequest},
+    schemas::user::User,
+    state::AppState,
 };
 
 #[instrument(skip(state))]
 pub async fn add_user(
     State(mut state): State<AppState>,
-    Json(payload): Json<UserRequest>,
+    ValidatedJson(payload): ValidatedJson<UserRequest>,
 ) -> Result<(StatusCode, Json<User>), AppError> {
-    payload.validate()?;
     let user = toasty::create!(User {
         name: payload.name,
         email: payload.email,
@@ -29,9 +30,8 @@ pub async fn add_user(
 pub async fn update_user(
     Path(id): Path<i64>,
     State(mut state): State<AppState>,
-    Json(payload): Json<UserRequest>,
+    ValidatedJson(payload): ValidatedJson<UserRequest>,
 ) -> Result<StatusCode, AppError> {
-    payload.validate()?;
     toasty::update!(User::filter_by_id(id) {
         name: payload.name,
         email: payload.email,

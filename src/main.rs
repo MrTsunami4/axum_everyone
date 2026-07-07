@@ -2,6 +2,7 @@ use axum_everyone::{AppState, Joke, User, create_app};
 use clap::Parser;
 use dotenvy::dotenv;
 use tokio::{net::TcpListener, signal};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use std::{
     env,
@@ -21,7 +22,18 @@ struct Opts {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    tracing_subscriber::fmt().init();
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                format!(
+                    "{}=debug,tower_http=debug,axum::rejection=trace",
+                    env!("CARGO_CRATE_NAME")
+                )
+                .into()
+            }),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
     let opts = Opts::parse();
 

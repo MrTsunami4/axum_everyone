@@ -4,12 +4,14 @@ use axum::{
     http::StatusCode,
 };
 use tracing::instrument;
-use validator::Validate;
 
 use crate::{
     SerializablePage,
     error::AppError,
-    request::joke_request::{JokeRequest, PaginationParams},
+    request::{
+        ValidatedJson,
+        joke_request::{JokeRequest, PaginationParams},
+    },
     schemas::{joke::Joke, user::User},
     state::AppState,
 };
@@ -18,9 +20,8 @@ use crate::{
 pub async fn add_joke(
     Path(user_id): Path<i64>,
     State(mut state): State<AppState>,
-    Json(payload): Json<JokeRequest>,
+    ValidatedJson(payload): ValidatedJson<JokeRequest>,
 ) -> Result<(StatusCode, Json<Joke>), AppError> {
-    payload.validate()?;
     let user = User::get_by_id(&mut state.db, user_id).await?;
     let joke = toasty::create!(in user.jokes() {
         content: payload.content
@@ -34,9 +35,8 @@ pub async fn add_joke(
 pub async fn update_joke(
     Path(id): Path<i64>,
     State(mut state): State<AppState>,
-    Json(payload): Json<JokeRequest>,
+    ValidatedJson(payload): ValidatedJson<JokeRequest>,
 ) -> Result<StatusCode, AppError> {
-    payload.validate()?;
     Joke::update_by_id(id)
         .content(payload.content)
         .exec(&mut state.db)

@@ -1,4 +1,5 @@
 use axum::{
+    extract::rejection,
     http::StatusCode,
     response::{IntoResponse, Response},
 };
@@ -11,6 +12,8 @@ pub enum AppError {
     Validation(#[from] validator::ValidationErrors),
     #[error(transparent)]
     DBError(#[from] toasty::Error),
+    #[error(transparent)]
+    JsonError(#[from] rejection::JsonRejection),
 }
 
 impl IntoResponse for AppError {
@@ -27,6 +30,7 @@ impl IntoResponse for AppError {
                     "Internal server error".to_string(),
                 )
             }
+            Self::JsonError(err) => (StatusCode::BAD_REQUEST, err.to_string()),
         }
         .into_response()
     }
