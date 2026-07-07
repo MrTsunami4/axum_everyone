@@ -7,8 +7,8 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use std::{
     env,
     error::Error,
-    fs,
     net::{Ipv4Addr, SocketAddr},
+    path::Path,
 };
 
 #[derive(Parser)]
@@ -27,7 +27,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
                 format!(
-                    "{}=debug,tower_http=debug,axum::rejection=trace",
+                    "{}=debug,tower_http=debug,axum::rejection=trace,toasty=debug",
                     env!("CARGO_CRATE_NAME")
                 )
                 .into()
@@ -42,16 +42,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let db_url = env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:./data.db".to_string());
 
+    let db_file_name = Path::new(&db_url)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+
+    let db_exist = Path::new(&db_file_name).exists();
+
     let db = toasty::Db::builder()
         .models(toasty::models!(Joke, User))
         .connect(&db_url)
         .await?;
 
-    if let Ok(false) = fs::exists("data.db") {
+    if !db_exist {
         db.push_schema().await?;
-        tracing::info!("Database schema applied");
-    } else {
-        tracing::info!("Database schema already applied");
     }
 
     let state = AppState { db };
