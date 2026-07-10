@@ -12,7 +12,7 @@ pub struct Joke {
     pub content: String,
     #[index]
     pub user_id: i64,
-    #[belongs_to(key = user_id, references = id)]
+    #[belongs_to]
     #[serde(skip_serializing_if = "toasty::Deferred::is_unloaded", default)]
     #[schema(ignore)]
     pub user: toasty::Deferred<User>,
