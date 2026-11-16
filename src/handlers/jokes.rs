@@ -1,15 +1,11 @@
-use axum::{
-    Json,
-    extract::{Path, State},
-    http::StatusCode,
-};
+use axum::{Json, extract::State, http::StatusCode};
 use tracing::instrument;
 
 use crate::{
     SerializablePage,
     error::{AppError, ErrorResponse},
     request::{
-        ValidatedJson, ValidatedQuery,
+        ApiPath, ValidatedJson, ValidatedQuery,
         joke_request::{JokeRequest, PaginationParams},
     },
     schemas::{joke::Joke, user::User},
@@ -30,18 +26,20 @@ use crate::{
         (status = 404, description = "User not found", body = ErrorResponse),
     ),
 )]
-#[instrument(skip(state))]
+#[instrument(skip_all)]
 pub async fn add_joke(
-    Path(user_id): Path<i64>,
+    ApiPath(user_id): ApiPath<i64>,
     State(mut state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<JokeRequest>,
 ) -> Result<(StatusCode, Json<Joke>), AppError> {
-    let user = User::get_by_id(&mut state.db, user_id).await?;
+    let mut tx = state.db.transaction().await?;
+    let user = User::get_by_id(&mut tx, user_id).await?;
     let joke = toasty::create!(in user.jokes() {
         content: payload.content
     })
-    .exec(&mut state.db)
+    .exec(&mut tx)
     .await?;
+    tx.commit().await?;
     Ok((StatusCode::CREATED, Json(joke)))
 }
 
@@ -57,9 +55,9 @@ pub async fn add_joke(
         (status = 404, description = "User not found", body = ErrorResponse),
     ),
 )]
-#[instrument(skip(state))]
+#[instrument(skip_all)]
 pub async fn get_user_jokes(
-    Path(user_id): Path<i64>,
+    ApiPath(user_id): ApiPath<i64>,
     State(mut state): State<AppState>,
 ) -> Result<Json<Vec<Joke>>, AppError> {
     // 404 on a missing user, mirroring add_joke.
@@ -77,7 +75,7 @@ pub async fn get_user_jokes(
         (status = 200, description = "Paginated jokes", body = SerializablePage<Joke>),
     ),
 )]
-#[instrument(skip(state))]
+#[instrument(skip_all)]
 pub async fn list_jokes(
     State(mut state): State<AppState>,
     ValidatedQuery(params): ValidatedQuery<PaginationParams>,
@@ -107,18 +105,20 @@ pub async fn list_jokes(
         (status = 404, description = "Joke not found", body = ErrorResponse),
     ),
 )]
-#[instrument(skip(state))]
+#[instrument(skip_all)]
 pub async fn update_joke(
-    Path(id): Path<i64>,
+    ApiPath(id): ApiPath<i64>,
     State(mut state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<JokeRequest>,
 ) -> Result<StatusCode, AppError> {
+    let mut tx = state.db.transaction().await?;
     // Existence check: the update builder is a silent no-op when no row matches.
-    Joke::get_by_id(&mut state.db, id).await?;
+    Joke::get_by_id(&mut tx, id).await?;
     Joke::update_by_id(id)
         .content(payload.content)
-        .exec(&mut state.db)
+        .exec(&mut tx)
         .await?;
+    tx.commit().await?;
     Ok(StatusCode::OK)
 }
 
@@ -128,7 +128,7 @@ pub async fn update_joke(
     tag = "Jokes",
     responses((status = 204, description = "All jokes deleted")),
 )]
-#[instrument(skip(state))]
+#[instrument(skip_all)]
 pub async fn delete_all_jokes(State(mut state): State<AppState>) -> Result<StatusCode, AppError> {
     Joke::all().delete().exec(&mut state.db).await?;
     Ok(StatusCode::NO_CONTENT)
@@ -146,9 +146,9 @@ pub async fn delete_all_jokes(State(mut state): State<AppState>) -> Result<Statu
         (status = 404, description = "Joke not found", body = ErrorResponse),
     ),
 )]
-#[instrument(skip(state))]
+#[instrument(skip_all)]
 pub async fn get_joke(
-    Path(id): Path<i64>,
+    ApiPath(id): ApiPath<i64>,
     State(mut state): State<AppState>,
 ) -> Result<Json<Joke>, AppError> {
     let joke = Joke::get_by_id(&mut state.db, id).await?;
@@ -167,13 +167,15 @@ pub async fn get_joke(
         (status = 404, description = "Joke not found", body = ErrorResponse),
     ),
 )]
-#[instrument(skip(state))]
+#[instrument(skip_all)]
 pub async fn delete_joke(
-    Path(id): Path<i64>,
+    ApiPath(id): ApiPath<i64>,
     State(mut state): State<AppState>,
 ) -> Result<StatusCode, AppError> {
+    let mut tx = state.db.transaction().await?;
     // Existence check: deleting a missing joke should 404, not silently succeed.
-    Joke::get_by_id(&mut state.db, id).await?;
-    Joke::delete_by_id(&mut state.db, id).await?;
+    Joke::get_by_id(&mut tx, id).await?;
+    Joke::delete_by_id(&mut tx, id).await?;
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }

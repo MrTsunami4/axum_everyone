@@ -25,6 +25,8 @@ pub enum AppError {
     JsonError(#[from] rejection::JsonRejection),
     #[error(transparent)]
     QueryError(#[from] rejection::QueryRejection),
+    #[error(transparent)]
+    PathError(#[from] rejection::PathRejection),
     #[error("{0}")]
     Conflict(String),
 }
@@ -45,6 +47,7 @@ impl IntoResponse for AppError {
             }
             Self::JsonError(err) => (StatusCode::BAD_REQUEST, err.to_string()),
             Self::QueryError(err) => (StatusCode::BAD_REQUEST, err.to_string()),
+            Self::PathError(err) => (err.status(), err.body_text()),
             Self::Conflict(message) => (StatusCode::CONFLICT, message),
         };
 

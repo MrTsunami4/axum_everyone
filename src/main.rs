@@ -1,11 +1,10 @@
-use axum_everyone::{AppState, Joke, MIGRATIONS, User, create_app};
+use axum_everyone::{AppState, MIGRATIONS, create_app, database};
 use clap::Parser;
 use dotenvy::dotenv;
 use tokio::{net::TcpListener, signal};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use std::{
-    env,
     error::Error,
     net::{Ipv4Addr, SocketAddr},
 };
@@ -22,6 +21,8 @@ struct Opts {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    dotenv().ok();
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
@@ -37,14 +38,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let opts = Opts::parse();
 
-    dotenv().ok();
-
-    let db_url = env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:./data.db".to_string());
-
-    let db = toasty::Db::builder()
-        .models(toasty::models!(Joke, User))
-        .connect(&db_url)
-        .await?;
+    let db = database::connect(&database::database_url()?).await?;
 
     let report = MIGRATIONS.apply(&db).await?;
     if report.applied() > 0 {
@@ -71,7 +65,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn shutdown_signal() {
-    signal::ctrl_c()
-        .await
-        .expect("Error setting Ctrl-C signal handler");
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("Error setting Ctrl-C signal handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("Error setting SIGTERM signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
 }

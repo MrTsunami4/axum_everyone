@@ -15,10 +15,6 @@ pub struct JokeRequest {
 #[derive(Debug, Default, Serialize, Deserialize, Validate, ToSchema, IntoParams)]
 pub struct PaginationParams {
     pub cursor: Option<i64>,
-    #[validate(range(
-        min = 1,
-        max = 100,
-        message = "page_size must be between 1 and 100"
-    ))]
+    #[validate(range(min = 1, max = 100, message = "page_size must be between 1 and 100"))]
     pub page_size: Option<usize>,
 }

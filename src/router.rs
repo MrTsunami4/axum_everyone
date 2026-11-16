@@ -37,7 +37,9 @@ pub fn create_app(state: AppState) -> Router {
             handlers::jokes::update_joke,
             handlers::jokes::delete_joke,
         ))
-        .layer(CorsLayer::very_permissive())
+        // Restrict cross-origin access by default; relax in production via config
+        // if the API is meant to be consumed from browsers on other origins.
+        .layer(CorsLayer::new())
         .layer(TraceLayer::new_for_http())
         .with_state(state)
         .split_for_parts();
